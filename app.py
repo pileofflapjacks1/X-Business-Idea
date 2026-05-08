@@ -20,14 +20,18 @@ with st.expander("💡 What is an Agentic AI? (Learn while you use it)"):
     Watch the steps below to learn how real agents work!
     """)
 
-# API Key handling
+# API Key handling — prefer env var (Replit Secret), fall back to manual entry
+_env_key = os.environ.get("GROK_API_KEY", "")
+if _env_key and 'grok_key' not in st.session_state:
+    st.session_state.grok_key = _env_key
+
 if 'grok_key' not in st.session_state:
     col1, col2 = st.columns([3,1])
     with col1:
         api_key = st.text_input("Enter your xAI Grok API Key to activate the agent", type="password", help="Get your key at https://console.x.ai")
     with col2:
         if st.button("Save Key & Activate Agent", type="primary"):
-            if api_key.startswith("gsk_") or len(api_key) > 20:  # rough validation
+            if len(api_key) > 20:
                 st.session_state.grok_key = api_key
                 st.success("✅ Agent activated! Grok is ready.")
                 st.rerun()
