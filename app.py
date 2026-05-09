@@ -734,6 +734,69 @@ with st.sidebar:
             unsafe_allow_html=True,
         )
 
+    st.divider()
+    import streamlit.components.v1 as components
+    components.html(
+        """
+<style>
+  .share-btn {
+    width: 100%;
+    padding: 10px 0;
+    background: #ffffff;
+    color: #1a1a2e;
+    font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border: 1.5px solid #d0d7de;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .share-btn:hover {
+    background: #f0f6ff;
+    border-color: #0969da;
+  }
+  .share-btn.copied {
+    background: #d4f7e7;
+    border-color: #2da44e;
+    color: #1a7f37;
+  }
+  .share-note {
+    font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+    font-size: 0.75rem;
+    color: #6e7781;
+    text-align: center;
+    margin-top: 6px;
+  }
+</style>
+<button class="share-btn" id="shareBtn" onclick="copyLink()">🔗 Share this template</button>
+<p class="share-note" id="shareNote">Send this to a friend — they can fork it instantly</p>
+<script>
+  function copyLink() {
+    var link = "https://replit.com/@YourUsername/agent-in-a-box";
+    navigator.clipboard.writeText(link).then(function() {
+      var btn = document.getElementById("shareBtn");
+      var note = document.getElementById("shareNote");
+      btn.textContent = "✅ Link copied!";
+      btn.classList.add("copied");
+      note.textContent = "Paste it anywhere to share";
+      setTimeout(function() {
+        btn.textContent = "🔗 Share this template";
+        btn.classList.remove("copied");
+        note.textContent = "Send this to a friend — they can fork it instantly";
+      }, 2500);
+    }).catch(function() {
+      var btn = document.getElementById("shareBtn");
+      btn.textContent = "⚠️ Copy manually";
+      setTimeout(function() { btn.textContent = "🔗 Share this template"; }, 2500);
+    });
+  }
+</script>
+""",
+        height=80,
+        scrolling=False,
+    )
+
 # API client
 client = OpenAI(
     api_key=st.session_state.grok_key or "dummy", base_url="https://api.x.ai/v1"
