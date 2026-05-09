@@ -690,6 +690,50 @@ with st.sidebar:
         ]
         st.rerun()
 
+    st.divider()
+
+    if "show_premium" not in st.session_state:
+        st.session_state.show_premium = False
+
+    if st.button("🚀 Make this agent always-on (Premium)", use_container_width=True, type="primary"):
+        st.session_state.show_premium = not st.session_state.show_premium
+
+    if st.session_state.show_premium:
+        st.markdown(
+            """
+<div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            border: 1px solid #e94560;
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 8px;">
+  <div style="font-size: 1.1rem; font-weight: 700; color: #ffffff; margin-bottom: 6px;">
+    ⚡ Always-On Agent — $9/month
+  </div>
+  <div style="font-size: 0.85rem; color: #c9d1d9; margin-bottom: 12px; line-height: 1.5;">
+    Deploy your chosen agent 24/7 in the cloud.<br><br>
+    <strong style="color: #f0f0f0;">No more clicking Run every time</strong> — your agent works quietly in the background, handling tasks, monitoring updates, and acting on your behalf around the clock.
+  </div>
+  <a href="/upgrade" target="_blank" style="
+    display: block;
+    text-align: center;
+    background: #e94560;
+    color: white;
+    font-weight: 700;
+    font-size: 0.9rem;
+    padding: 10px 0;
+    border-radius: 8px;
+    text-decoration: none;
+    letter-spacing: 0.03em;">
+    Upgrade — $9/month
+  </a>
+  <div style="font-size: 0.75rem; color: #8b949e; text-align: center; margin-top: 8px;">
+    Cancel anytime. No contracts.
+  </div>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
+
 # API client
 client = OpenAI(
     api_key=st.session_state.grok_key or "dummy", base_url="https://api.x.ai/v1"
