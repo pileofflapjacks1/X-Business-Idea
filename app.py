@@ -207,6 +207,105 @@ st.markdown(
         text-transform: uppercase;
         margin-bottom: 0.3rem;
     }
+    /* ── Onboarding Tour ── */
+    .tour-wrap {
+        background: linear-gradient(140deg, #0a0f1e 0%, #0f2044 55%, #102a52 100%);
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,0.09);
+        padding: 2.6rem 2.8rem 2.2rem;
+        margin-bottom: 2rem;
+        color: #ffffff;
+        text-align: center;
+    }
+    .tour-step-label {
+        display: inline-block;
+        background: rgba(251,191,36,0.12);
+        color: #fbbf24;
+        border: 1px solid rgba(251,191,36,0.35);
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 0.28rem 1rem;
+        margin-bottom: 1.2rem;
+    }
+    .tour-wrap h2 {
+        font-size: 1.65rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        margin: 0 0 0.7rem;
+        color: #ffffff;
+    }
+    .tour-wrap p {
+        font-size: 0.98rem;
+        color: #8fa8c8;
+        max-width: 520px;
+        margin: 0 auto 1.4rem;
+        line-height: 1.75;
+    }
+    .tour-trace-demo {
+        display: inline-flex;
+        gap: 0.5rem;
+        align-items: center;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px;
+        padding: 0.85rem 1.4rem;
+        margin-bottom: 1.5rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    .tour-trace-demo .tp { background:#eef2ff; color:#3730a3; border-radius:6px; padding:0.2rem 0.65rem; }
+    .tour-trace-demo .ta { background:#ecfdf5; color:#065f46; border-radius:6px; padding:0.2rem 0.65rem; }
+    .tour-trace-demo .tr { background:#fff7ed; color:#92400e; border-radius:6px; padding:0.2rem 0.65rem; }
+    .tour-trace-demo .arr { color: rgba(255,255,255,0.35); font-weight:400; }
+    .tour-prompt-box {
+        background: rgba(255,255,255,0.06);
+        border: 1px dashed rgba(255,255,255,0.18);
+        border-radius: 10px;
+        padding: 0.9rem 1.2rem;
+        font-size: 0.93rem;
+        color: #c8d8ec;
+        font-style: italic;
+        margin-bottom: 1.5rem;
+        text-align: left;
+        max-width: 480px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    .tour-safety-list {
+        list-style: none;
+        padding: 0;
+        margin: 0 auto 1.5rem;
+        max-width: 420px;
+        text-align: left;
+    }
+    .tour-safety-list li {
+        color: #8fa8c8;
+        font-size: 0.93rem;
+        padding: 0.38rem 0;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
+    .tour-safety-list li:last-child { border-bottom: none; }
+    .tour-dots {
+        display: flex;
+        justify-content: center;
+        gap: 0.45rem;
+        margin-bottom: 1.2rem;
+    }
+    .tour-dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.18);
+        display: inline-block;
+    }
+    .tour-dot.active { background: #fbbf24; }
 </style>
 """,
     unsafe_allow_html=True,
@@ -249,6 +348,100 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# ====================== ONBOARDING TOUR ======================
+if "onboarding_done" not in st.session_state:
+    st.session_state.onboarding_done = False
+if "onboarding_step" not in st.session_state:
+    st.session_state.onboarding_step = 0
+
+_TOUR_CARDS = [
+    {
+        "label": "Step 1 of 3 • What is an Agent?",
+        "title": "Meet your AI agent",
+        "body": (
+            "Unlike a simple chatbot, an agent can <strong style='color:#fff'>plan</strong>, "
+            "take <strong style='color:#fff'>actions</strong> (like searching the web or saving notes), "
+            "and <strong style='color:#fff'>reflect</strong> on what it did — all on its own."
+        ),
+        "extra": """
+<div class="tour-trace-demo">
+  <span class="tp">📋 Plan</span>
+  <span class="arr">→</span>
+  <span class="ta">🔧 Act</span>
+  <span class="arr">→</span>
+  <span class="tr">💡 Reflect</span>
+</div>
+<p style="font-size:0.82rem;color:rgba(143,168,200,0.7);margin-top:-0.8rem;">
+  Every response you see below follows this pattern.
+</p>""",
+    },
+    {
+        "label": "Step 2 of 3 • Try your first agent",
+        "title": "Send your first message",
+        "body": (
+            "Pick any agent from the sidebar, paste your API key, then try this starter prompt — "
+            "or write your own. The agent will plan, search, and reply in seconds."
+        ),
+        "extra": """
+<div class="tour-prompt-box">
+  💬 "What are 3 things I should do this week to feel more on top of my life?"
+</div>""",
+    },
+    {
+        "label": "Step 3 of 3 • Stay safe",
+        "title": "Built-in guardrails protect you",
+        "body": (
+            "Before the agent can do anything risky, these rules kick in automatically. "
+            "You can adjust them any time in the sidebar."
+        ),
+        "extra": """
+<ul class="tour-safety-list">
+  <li>🛡️ Never spend money or make purchases</li>
+  <li>✉️ Always ask before sending any email</li>
+  <li>🔒 Never share your personal information</li>
+  <li>💰 Session budget limit stops runaway costs</li>
+</ul>""",
+    },
+]
+
+if not st.session_state.onboarding_done:
+    _step = st.session_state.onboarding_step
+    _card = _TOUR_CARDS[_step]
+
+    _dots_html = "".join(
+        f'<span class="tour-dot{"  active" if i == _step else ""}"></span>'
+        for i in range(len(_TOUR_CARDS))
+    )
+
+    st.markdown(
+        f"""
+<div class="tour-wrap">
+  <div class="tour-step-label">{_card["label"]}</div>
+  <h2>{_card["title"]}</h2>
+  <p>{_card["body"]}</p>
+  {_card["extra"]}
+  <div class="tour-dots">{_dots_html}</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+    _btn_cols = st.columns([1, 1, 4])
+    with _btn_cols[0]:
+        if _step > 0:
+            if st.button("← Back", key="tour_back"):
+                st.session_state.onboarding_step -= 1
+                st.rerun()
+    with _btn_cols[1]:
+        if _step < len(_TOUR_CARDS) - 1:
+            if st.button("Next →", key="tour_next", type="primary"):
+                st.session_state.onboarding_step += 1
+                st.rerun()
+        else:
+            if st.button("Let's go ✓", key="tour_done", type="primary"):
+                st.session_state.onboarding_done = True
+                st.rerun()
+
 # Feature cards (using your .card class)
 st.markdown(
     '<div class="section-label">Choose your agent below — each one is fully agentic</div>',
@@ -270,6 +463,8 @@ for i, (name, data) in enumerate(AGENTS.items()):
 # ====================== GUARDRAILS SESSION STATE ======================
 for _k, _v in {
     "grok_key": "",
+    "onboarding_done": False,
+    "onboarding_step": 0,
     "guardrail_no_spend": True,
     "guardrail_ask_email": True,
     "guardrail_no_personal": True,
