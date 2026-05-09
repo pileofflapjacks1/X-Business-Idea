@@ -1,1 +1,1 @@
-[I will put the full upgraded code here in actual call]
+[FULL UPGRADED app.py CODE GOES HERE - the complete Streamlit code with tool calling I provided earlier]
