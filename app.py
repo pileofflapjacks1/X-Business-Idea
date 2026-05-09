@@ -306,6 +306,62 @@ st.markdown(
         display: inline-block;
     }
     .tour-dot.active { background: #fbbf24; }
+    /* ── Session Results Box ── */
+    .results-box {
+        background: #ffffff;
+        border: 1px solid #e5e9f0;
+        border-radius: 14px;
+        padding: 1.4rem 2rem;
+        margin-bottom: 1.8rem;
+        box-shadow: 0 2px 8px rgba(10,20,50,0.06);
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+        flex-wrap: wrap;
+    }
+    .results-box .rb-title {
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #2563eb;
+        margin-bottom: 0.9rem;
+        display: block;
+        width: 100%;
+    }
+    .results-box .rb-stat {
+        display: flex;
+        flex-direction: column;
+        min-width: 110px;
+    }
+    .results-box .rb-number {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: #0d1b2e;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+    }
+    .results-box .rb-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #8fa0b5;
+        margin-top: 0.25rem;
+    }
+    .results-box .rb-divider {
+        width: 1px;
+        height: 40px;
+        background: #e5e9f0;
+        flex-shrink: 0;
+    }
+    .results-box .rb-message {
+        font-size: 0.93rem;
+        color: #5a6880;
+        font-weight: 500;
+        flex: 1;
+        min-width: 160px;
+    }
 </style>
 """,
     unsafe_allow_html=True,
@@ -442,6 +498,35 @@ if not st.session_state.onboarding_done:
                 st.session_state.onboarding_done = True
                 st.rerun()
 
+# ====================== SESSION RESULTS BOX ======================
+_tasks = st.session_state.get("tasks_completed", 0)
+_cost  = st.session_state.get("session_cost", 0.0)
+_mins  = _tasks * 5
+_msg   = (
+    f"Your agent just helped you with {_tasks} task{'s' if _tasks != 1 else ''}!"
+    if _tasks > 0
+    else "Complete your first task to see your results here."
+)
+st.markdown(
+    f"""
+<div class="results-box">
+  <span class="rb-title">⚡ Your Results This Session</span>
+  <div class="rb-stat">
+    <span class="rb-number">{_mins} min</span>
+    <span class="rb-label">Time Saved</span>
+  </div>
+  <div class="rb-divider"></div>
+  <div class="rb-stat">
+    <span class="rb-number">${_cost:.4f}</span>
+    <span class="rb-label">API Cost Used</span>
+  </div>
+  <div class="rb-divider"></div>
+  <div class="rb-message">✅ {_msg}</div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
+
 # Feature cards (using your .card class)
 st.markdown(
     '<div class="section-label">Choose your agent below — each one is fully agentic</div>',
@@ -471,6 +556,7 @@ for _k, _v in {
     "guardrail_max_spend": 0.50,
     "guardrail_approve_risky": False,
     "session_cost": 0.0,
+    "tasks_completed": 0,
     "pending_input": None,
     "pending_confirmed": False,
 }.items():
@@ -596,6 +682,7 @@ with st.sidebar:
     if st.button("Clear Memory & Trace"):
         st.session_state.trace = []
         st.session_state.session_cost = 0.0
+        st.session_state.tasks_completed = 0
         st.session_state.pending_input = None
         st.session_state.pending_confirmed = False
         st.session_state.messages = [
@@ -806,6 +893,8 @@ if st.session_state.pending_input and st.session_state.pending_confirmed:
             st.session_state.trace.append(
                 {"step": "Final Reflection", "content": msg.content}
             )
+
+        st.session_state.tasks_completed += 1
 
 # ====================== DISPLAY ======================
 st.subheader(f"{selected_agent['icon']} Agent Trace — {selected_agent_name}")
