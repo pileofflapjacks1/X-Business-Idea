@@ -147,6 +147,66 @@ st.markdown(
     }
     .stExpander { border-radius: 12px !important; border-color: #e5e9f0 !important; }
     .stAlert { border-radius: 10px !important; }
+    /* ── Safety Guardrails panel ── */
+    .guardrails-panel {
+        background: #ffffff;
+        border: 1px solid #e5e9f0;
+        border-radius: 14px;
+        padding: 1.2rem 1.4rem 1.1rem;
+        margin-bottom: 1.2rem;
+        box-shadow: 0 1px 4px rgba(10,20,50,0.04);
+    }
+    .guardrails-title {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #3b82f6;
+        margin-bottom: 0.1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+    .guardrails-sub {
+        font-size: 0.78rem;
+        color: #8fa0b5;
+        margin-bottom: 0.8rem;
+        font-weight: 400;
+    }
+    .cost-badge {
+        display: inline-block;
+        background: #f0fdf4;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 0.18rem 0.7rem;
+        margin-left: 0.4rem;
+    }
+    .cost-badge-warn {
+        background: #fff7ed;
+        color: #92400e;
+        border-color: #fde68a;
+    }
+    .cost-badge-danger {
+        background: #fef2f2;
+        color: #991b1b;
+        border-color: #fecaca;
+    }
+    .guardrail-trace {
+        display: inline-block;
+        background: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+        border-radius: 6px;
+        padding: 0.18rem 0.65rem;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        margin-bottom: 0.3rem;
+    }
 </style>
 """,
     unsafe_allow_html=True,
@@ -207,11 +267,69 @@ for i, (name, data) in enumerate(AGENTS.items()):
             unsafe_allow_html=True,
         )
 
+# ====================== GUARDRAILS SESSION STATE ======================
+for _k, _v in {
+    "grok_key": "",
+    "guardrail_no_spend": True,
+    "guardrail_ask_email": True,
+    "guardrail_no_personal": True,
+    "guardrail_max_spend": 0.50,
+    "guardrail_approve_risky": False,
+    "session_cost": 0.0,
+    "pending_input": None,
+    "pending_confirmed": False,
+}.items():
+    if _k not in st.session_state:
+        st.session_state[_k] = _v
+
+# ====================== COST HELPERS ======================
+GROK_COST_INPUT  = 5.0  / 1_000_000   # $ per input token
+GROK_COST_OUTPUT = 15.0 / 1_000_000   # $ per output token
+
+def add_cost(usage):
+    if usage:
+        st.session_state.session_cost += (
+            getattr(usage, "prompt_tokens", 0)    * GROK_COST_INPUT +
+            getattr(usage, "completion_tokens", 0) * GROK_COST_OUTPUT
+        )
+
+def cost_badge_class(cost, limit):
+    if cost >= limit:
+        return "cost-badge cost-badge-danger"
+    if cost >= limit * 0.75:
+        return "cost-badge cost-badge-warn"
+    return "cost-badge"
+
+# ====================== GUARDRAIL HELPERS ======================
+SPEND_KEYWORDS  = ["buy", "purchase", "order", "pay", "charge", "subscribe", "checkout", "spend"]
+EMAIL_KEYWORDS  = ["send email", "email to", "draft email", "compose email", "mail to", "send a message to"]
+RISKY_KEYWORDS  = SPEND_KEYWORDS + ["delete", "remove", "post", "submit", "transfer", "share", "send"]
+
+def input_contains(text, keywords):
+    low = text.lower()
+    return any(kw in low for kw in keywords)
+
+def check_guardrails(user_text):
+    """Returns (blocked: bool, reason: str | None)"""
+    if st.session_state.guardrail_no_spend and input_contains(user_text, SPEND_KEYWORDS):
+        return True, "Never spend money or make purchases guardrail triggered."
+    if st.session_state.guardrail_no_personal and any(
+        kw in user_text.lower() for kw in ["my address", "my ssn", "my password", "my card", "my bank"]
+    ):
+        return True, "Never share personal info guardrail triggered."
+    if st.session_state.session_cost >= st.session_state.guardrail_max_spend:
+        return True, f"Session budget of ${st.session_state.guardrail_max_spend:.2f} reached."
+    return False, None
+
+def needs_email_confirmation(user_text):
+    return st.session_state.guardrail_ask_email and input_contains(user_text, EMAIL_KEYWORDS)
+
+def needs_risky_confirmation(user_text):
+    return st.session_state.guardrail_approve_risky and input_contains(user_text, RISKY_KEYWORDS)
+
 # Sidebar: API key + controls
 with st.sidebar:
     st.header("🔑 Get Started")
-    if "grok_key" not in st.session_state:
-        st.session_state.grok_key = ""
     grok_key = st.text_input(
         "Paste your Grok API key (free at x.ai)",
         type="password",
@@ -221,6 +339,52 @@ with st.sidebar:
     if grok_key:
         st.session_state.grok_key = grok_key
         st.success("✅ Key saved for this session")
+
+    # ── Safety Guardrails ──
+    st.markdown(
+        """
+<div class="guardrails-panel">
+  <div class="guardrails-title">🛡️ Safety Guardrails</div>
+  <div class="guardrails-sub">Rules that protect you every session</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+    st.session_state.guardrail_no_spend = st.toggle(
+        "Never spend money or make purchases",
+        value=st.session_state.guardrail_no_spend,
+    )
+    st.session_state.guardrail_ask_email = st.toggle(
+        "Always ask before sending emails",
+        value=st.session_state.guardrail_ask_email,
+    )
+    st.session_state.guardrail_no_personal = st.toggle(
+        "Never share personal info",
+        value=st.session_state.guardrail_no_personal,
+    )
+
+    _cost      = st.session_state.session_cost
+    _limit     = st.session_state.guardrail_max_spend
+    _badge_cls = cost_badge_class(_cost, _limit)
+    st.markdown(
+        f'**Max spend this session** <span class="{_badge_cls}">${_cost:.4f} / ${_limit:.2f}</span>',
+        unsafe_allow_html=True,
+    )
+    st.session_state.guardrail_max_spend = st.slider(
+        "Budget limit ($)",
+        min_value=0.10,
+        max_value=5.00,
+        value=st.session_state.guardrail_max_spend,
+        step=0.10,
+        format="$%.2f",
+        label_visibility="collapsed",
+    )
+
+    st.session_state.guardrail_approve_risky = st.checkbox(
+        "Approve high-risk actions before running",
+        value=st.session_state.guardrail_approve_risky,
+        help="Agent will pause and ask for your confirmation before any action flagged as high-risk.",
+    )
 
     st.divider()
     selected_agent_name = st.selectbox(
@@ -236,6 +400,9 @@ with st.sidebar:
     st.header("Controls")
     if st.button("Clear Memory & Trace"):
         st.session_state.trace = []
+        st.session_state.session_cost = 0.0
+        st.session_state.pending_input = None
+        st.session_state.pending_confirmed = False
         st.session_state.messages = [
             {"role": "system", "content": selected_agent["system_prompt"]}
         ]
@@ -338,64 +505,112 @@ if (
 # ====================== CHAT ======================
 user_input = st.chat_input("What do you need help with today?")
 
+# ── Handle new user input: store as pending if confirmation needed ──
 if user_input:
     if not st.session_state.grok_key:
         st.error("Please paste your Grok API key in the sidebar first.")
     else:
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        st.session_state.trace.append({"step": "User", "content": user_input})
+        blocked, block_reason = check_guardrails(user_input)
+        if blocked:
+            st.session_state.trace.append(
+                {"step": "Guardrail Applied", "content": block_reason}
+            )
+        elif needs_email_confirmation(user_input) or needs_risky_confirmation(user_input):
+            st.session_state.pending_input = user_input
+            st.session_state.pending_confirmed = False
+        else:
+            st.session_state.pending_input = user_input
+            st.session_state.pending_confirmed = True
 
-        with st.spinner(f"{selected_agent['icon']} {selected_agent_name} thinking..."):
-            response = client.chat.completions.create(
+# ── Show confirmation prompt for pending high-risk / email actions ──
+if st.session_state.pending_input and not st.session_state.pending_confirmed:
+    _pending = st.session_state.pending_input
+    _is_email = needs_email_confirmation(_pending)
+    _is_risky = needs_risky_confirmation(_pending)
+    _label = "email" if _is_email else "high-risk action"
+    st.warning(
+        f"⚠️ **Guardrail pause** — your request involves a {_label}.\n\n"
+        f"> *\"{_pending}\"*\n\nDo you want to proceed?"
+    )
+    col_yes, col_no, _ = st.columns([1, 1, 4])
+    with col_yes:
+        if st.button("✅ Confirm", type="primary"):
+            st.session_state.pending_confirmed = True
+            st.session_state.trace.append(
+                {"step": "Guardrail Applied", "content": f"High-risk action approved by user: \"{_pending}\""}
+            )
+            st.rerun()
+    with col_no:
+        if st.button("❌ Cancel"):
+            st.session_state.trace.append(
+                {"step": "Guardrail Applied", "content": f"High-risk action cancelled by user: \"{_pending}\""}
+            )
+            st.session_state.pending_input = None
+            st.session_state.pending_confirmed = False
+            st.rerun()
+
+# ── Execute confirmed input ──
+if st.session_state.pending_input and st.session_state.pending_confirmed:
+    _exec_input = st.session_state.pending_input
+    st.session_state.pending_input = None
+    st.session_state.pending_confirmed = False
+
+    st.session_state.messages.append({"role": "user", "content": _exec_input})
+    st.session_state.trace.append({"step": "User", "content": _exec_input})
+
+    with st.spinner(f"{selected_agent['icon']} {selected_agent_name} thinking..."):
+        response = client.chat.completions.create(
+            model="grok-beta",
+            messages=st.session_state.messages,
+            tools=tools,
+            tool_choice="auto",
+            temperature=0.3,
+        )
+        add_cost(response.usage)
+        msg = response.choices[0].message
+        st.session_state.messages.append(msg.model_dump())
+
+        if msg.tool_calls:
+            for tool_call in msg.tool_calls:
+                tool_name = tool_call.function.name
+                args = json.loads(tool_call.function.arguments)
+                st.session_state.trace.append(
+                    {"step": "Tool Call", "content": f"Calling {tool_name}({args})"}
+                )
+                try:
+                    result = tool_map[tool_name](**args)
+                    st.session_state.trace.append(
+                        {"step": "Tool Result", "content": result}
+                    )
+                    st.session_state.messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "name": tool_name,
+                            "content": result,
+                        }
+                    )
+                except Exception as e:
+                    st.session_state.trace.append(
+                        {"step": "Tool Error", "content": str(e)}
+                    )
+
+            final_response = client.chat.completions.create(
                 model="grok-beta",
                 messages=st.session_state.messages,
                 tools=tools,
                 tool_choice="auto",
-                temperature=0.3,
             )
-            msg = response.choices[0].message
-            st.session_state.messages.append(msg.model_dump())
-
-            if msg.tool_calls:
-                for tool_call in msg.tool_calls:
-                    tool_name = tool_call.function.name
-                    args = json.loads(tool_call.function.arguments)
-                    st.session_state.trace.append(
-                        {"step": "Tool Call", "content": f"Calling {tool_name}({args})"}
-                    )
-                    try:
-                        result = tool_map[tool_name](**args)
-                        st.session_state.trace.append(
-                            {"step": "Tool Result", "content": result}
-                        )
-                        st.session_state.messages.append(
-                            {
-                                "role": "tool",
-                                "tool_call_id": tool_call.id,
-                                "name": tool_name,
-                                "content": result,
-                            }
-                        )
-                    except Exception as e:
-                        st.session_state.trace.append(
-                            {"step": "Tool Error", "content": str(e)}
-                        )
-
-                final_response = client.chat.completions.create(
-                    model="grok-beta",
-                    messages=st.session_state.messages,
-                    tools=tools,
-                    tool_choice="auto",
-                )
-                final_msg = final_response.choices[0].message
-                st.session_state.messages.append(final_msg.model_dump())
-                st.session_state.trace.append(
-                    {"step": "Final Reflection", "content": final_msg.content}
-                )
-            else:
-                st.session_state.trace.append(
-                    {"step": "Final Reflection", "content": msg.content}
-                )
+            add_cost(final_response.usage)
+            final_msg = final_response.choices[0].message
+            st.session_state.messages.append(final_msg.model_dump())
+            st.session_state.trace.append(
+                {"step": "Final Reflection", "content": final_msg.content}
+            )
+        else:
+            st.session_state.trace.append(
+                {"step": "Final Reflection", "content": msg.content}
+            )
 
 # ====================== DISPLAY ======================
 st.subheader(f"{selected_agent['icon']} Agent Trace — {selected_agent_name}")
@@ -406,6 +621,11 @@ for entry in st.session_state.trace:
         st.warning(f"🔧 **Tool Called**: {entry['content']}")
     elif entry["step"] == "Tool Result":
         st.success(f"✅ **Tool Result**: {entry['content']}")
+    elif entry["step"] == "Guardrail Applied":
+        st.markdown(
+            f'<span class="guardrail-trace">🛡️ Guardrail Applied</span><br>{entry["content"]}',
+            unsafe_allow_html=True,
+        )
     else:
         content = entry["content"]
         if literacy_mode:
