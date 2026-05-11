@@ -626,24 +626,32 @@ def needs_risky_confirmation(user_text):
 
 
 # ====================== SIDEBAR ======================
-# The sidebar is the control panel: API key, guardrails, agent picker, and utilities.
+# The sidebar follows a strict "two visible steps, everything else collapsed" pattern
+# so first-time users see only what they need to start chatting.
+#   Step 1 → paste API key
+#   Step 2 → pick an agent
+#   Everything else (safety, literacy, controls, premium, share) lives in expanders.
 with st.sidebar:
 
-    # --- API Key ---
-    st.header("🔑 Get Started")
+    # ============== STEP 1: API KEY ==============
     st.markdown(
         """
-<div style="font-size:0.85rem;color:#5a6880;line-height:1.55;margin-bottom:0.6rem;">
-  <strong style="color:#0d1b2e;">First time? Get a free key in 30 seconds:</strong><br>
+<div style="font-size:0.7rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#2563eb;margin-bottom:0.3rem;">
+  Step 1 of 2
+</div>
+<div style="font-size:1.05rem;font-weight:700;color:#0d1b2e;margin-bottom:0.5rem;">
+  🔑 Add your free API key
+</div>
+<div style="font-size:0.83rem;color:#5a6880;line-height:1.55;margin-bottom:0.7rem;">
   1. Open <a href="https://x.ai/api" target="_blank" style="color:#2563eb;font-weight:600;">x.ai/api</a> and sign in<br>
   2. Click <em>Create API Key</em><br>
-  3. Copy the key and paste it below
+  3. Paste it below
 </div>
 """,
         unsafe_allow_html=True,
     )
     grok_key = st.text_input(
-        "Paste your API key here",
+        "Your API key",
         type="password",
         value=st.session_state.grok_key,
         help=(
@@ -651,93 +659,124 @@ with st.sidebar:
             "to talk to your agent. It's not saved to disk or shared with anyone else by this app."
         ),
         placeholder="xai-...",
+        label_visibility="collapsed",
     )
     if grok_key:
         st.session_state.grok_key = grok_key
-        st.success("✅ Key saved for this session")
+        st.success("✅ Key saved")
 
-    # --- Safety Guardrails ---
+    st.divider()
+
+    # ============== STEP 2: PICK AN AGENT ==============
     st.markdown(
         """
-<div class="guardrails-panel">
-  <div class="guardrails-title">🛡️ Your Safety Settings</div>
-  <div class="guardrails-sub">All on by default to keep you safe — adjust any time.</div>
+<div style="font-size:0.7rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#2563eb;margin-bottom:0.3rem;">
+  Step 2 of 2
+</div>
+<div style="font-size:1.05rem;font-weight:700;color:#0d1b2e;margin-bottom:0.5rem;">
+  🤖 Pick your agent
 </div>
 """,
         unsafe_allow_html=True,
     )
-    st.session_state.guardrail_no_spend = st.toggle(
-        "Never spend money or make purchases",
-        value=st.session_state.guardrail_no_spend,
-    )
-    st.session_state.guardrail_ask_email = st.toggle(
-        "Always ask before sending emails",
-        value=st.session_state.guardrail_ask_email,
-    )
-    st.session_state.guardrail_no_personal = st.toggle(
-        "Never share personal info",
-        value=st.session_state.guardrail_no_personal,
-    )
-
-    _cost      = st.session_state.session_cost
-    _limit     = st.session_state.guardrail_max_spend
-    _badge_cls = cost_badge_class(_cost, _limit)
-    _cost_display = "less than 1¢" if _cost < 0.01 else f"${_cost:.2f}"
-    st.markdown(
-        f'**Session spend** <span class="{_badge_cls}">{_cost_display} of ${_limit:.2f}</span>',
-        unsafe_allow_html=True,
-    )
-    st.caption("💡 Each message costs a fraction of a cent — you're very unlikely to hit this limit.")
-    st.session_state.guardrail_max_spend = st.slider(
-        "Budget limit ($)",
-        min_value=0.10,
-        max_value=5.00,
-        value=st.session_state.guardrail_max_spend,
-        step=0.10,
-        format="$%.2f",
-        label_visibility="collapsed",
-    )
-
-    st.session_state.guardrail_approve_risky = st.checkbox(
-        "Approve high-risk actions before running",
-        value=st.session_state.guardrail_approve_risky,
-        help="Agent will pause and ask for your confirmation before any action flagged as high-risk.",
-    )
-
-    st.divider()
-
-    # --- Agent Selector ---
-    # Choosing a new agent resets the conversation and trace automatically (see SESSION STATE below).
     selected_agent_name = st.selectbox(
         "Choose your Agent",
         options=list(AGENTS.keys()),
         format_func=lambda x: f"{AGENTS[x]['icon']} {x}",
+        label_visibility="collapsed",
     )
     selected_agent = AGENTS[selected_agent_name]
 
-    # --- Agent Literacy Mode ---
-    # When ON: every trace step shows a plain-English explanation of what the agent just did.
-    # This is the core educational feature — users learn ReAct patterns by watching them live.
-    literacy_mode = st.toggle("🧠 Agent Literacy Mode (show explanations)", value=True)
+    # Friendly "you're ready" cue right after the two required steps are done.
+    if st.session_state.grok_key:
+        st.success("🎉 You're ready! Send a message on the right →")
+    else:
+        st.info("👈 Add your key above to get started.")
 
     st.divider()
 
-    # --- Controls ---
-    st.header("Controls")
-    if st.button("Clear Memory & Trace"):
-        st.session_state.trace = []
-        st.session_state.session_cost = 0.0
-        st.session_state.tasks_completed = 0
-        st.session_state.pending_input = None
-        st.session_state.pending_confirmed = False
-        st.session_state.messages = [
-            {"role": "system", "content": selected_agent["system_prompt"]}
-        ]
-        st.rerun()
+    # ============== ADVANCED (collapsed by default) ==============
+
+    # --- Safety settings (collapsed) ---
+    # Show whether any guardrail has been turned off so users know to check.
+    _any_guardrail_off = not (
+        st.session_state.guardrail_no_spend
+        and st.session_state.guardrail_ask_email
+        and st.session_state.guardrail_no_personal
+    )
+    _safety_label = (
+        "🛡️ Safety settings — ⚠️ some are OFF"
+        if _any_guardrail_off
+        else "🛡️ Safety settings — all on ✓"
+    )
+    with st.expander(_safety_label, expanded=False):
+        st.caption("All on by default to keep you safe. Toggle anything off only if you understand what it does.")
+        st.session_state.guardrail_no_spend = st.toggle(
+            "Never spend money or make purchases",
+            value=st.session_state.guardrail_no_spend,
+        )
+        st.session_state.guardrail_ask_email = st.toggle(
+            "Always ask before sending emails",
+            value=st.session_state.guardrail_ask_email,
+        )
+        st.session_state.guardrail_no_personal = st.toggle(
+            "Never share personal info",
+            value=st.session_state.guardrail_no_personal,
+        )
+
+        _cost      = st.session_state.session_cost
+        _limit     = st.session_state.guardrail_max_spend
+        _badge_cls = cost_badge_class(_cost, _limit)
+        _cost_display = "less than 1¢" if _cost < 0.01 else f"${_cost:.2f}"
+        st.markdown(
+            f'**Session spend** <span class="{_badge_cls}">{_cost_display} of ${_limit:.2f}</span>',
+            unsafe_allow_html=True,
+        )
+        st.caption("💡 Each message costs a fraction of a cent — you're unlikely to hit this limit.")
+        st.session_state.guardrail_max_spend = st.slider(
+            "Budget limit ($)",
+            min_value=0.10,
+            max_value=5.00,
+            value=st.session_state.guardrail_max_spend,
+            step=0.10,
+            format="$%.2f",
+            label_visibility="collapsed",
+        )
+        st.session_state.guardrail_approve_risky = st.checkbox(
+            "Approve high-risk actions before running",
+            value=st.session_state.guardrail_approve_risky,
+            help="Agent will pause and ask for your confirmation before any action flagged as high-risk.",
+        )
+
+    # --- Learning mode (collapsed) ---
+    with st.expander("🧠 Learning mode", expanded=False):
+        st.caption(
+            "When ON, every step the agent takes is explained in plain English so you "
+            "can learn how agents really work — by watching one in action."
+        )
+        literacy_mode = st.toggle(
+            "Show explanations under each step",
+            value=st.session_state.get("literacy_mode_pref", True),
+            key="literacy_mode_pref",
+        )
+
+    # --- Reset (collapsed) ---
+    with st.expander("🔄 Reset", expanded=False):
+        st.caption("Clears the conversation, the step-by-step trace, and your session spend.")
+        if st.button("Start a fresh conversation", use_container_width=True):
+            st.session_state.trace = []
+            st.session_state.session_cost = 0.0
+            st.session_state.tasks_completed = 0
+            st.session_state.pending_input = None
+            st.session_state.pending_confirmed = False
+            st.session_state.messages = [
+                {"role": "system", "content": selected_agent["system_prompt"]}
+            ]
+            st.rerun()
 
     st.divider()
 
-    # --- Premium Upgrade ---
+    # ============== PREMIUM + SHARE (kept at the very bottom) ==============
     if "show_premium" not in st.session_state:
         st.session_state.show_premium = False
 
