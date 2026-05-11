@@ -1161,6 +1161,9 @@ if not st.session_state.messages or len(st.session_state.messages) <= 1:
                 key=f"starter_{selected_agent_name}_{_idx}",
                 use_container_width=True,
             ):
+                if not st.session_state.grok_key:
+                    st.error("Please paste your API key in the sidebar (Step 1) first.")
+                    st.stop()
                 # Run the chosen prompt through the same guardrail flow as typed input.
                 blocked, block_reason = check_guardrails(_prompt)
                 if blocked:
