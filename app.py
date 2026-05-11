@@ -1073,7 +1073,7 @@ if st.session_state.pending_input and st.session_state.pending_confirmed:
         # --- Plan step: ask the model what to do ---
         st.write("📋 **Planning** — figuring out the best approach...")
         response = client.chat.completions.create(
-            model="grok-beta",
+            model="grok-3",
             messages=st.session_state.messages,
             tools=tools,
             tool_choice="auto",
@@ -1121,7 +1121,7 @@ if st.session_state.pending_input and st.session_state.pending_confirmed:
             # --- Reflect step: ask the model to summarise what it found ---
             st.write("✍️ **Writing your answer** based on what I found...")
             final_response = client.chat.completions.create(
-                model="grok-beta",
+                model="grok-3",
                 messages=st.session_state.messages,
                 tools=tools,
                 tool_choice="auto",
