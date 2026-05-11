@@ -5,7 +5,15 @@ import datetime
 from duckduckgo_search import DDGS
 from replit import db
 
-# ====================== YOUR ORIGINAL AESTHETICS (preserved 100%) ======================
+# === AGENTS CONFIG ===
+# All agent definitions live in agents_config.py.
+# To add a new agent to the marketplace, edit that file — no changes needed here.
+from agents_config import AGENTS
+
+
+# ====================== STYLING ======================
+# All visual styling (fonts, colors, card layouts, hero banner, guardrail panels)
+# lives here as a single CSS block so it's easy to find and edit.
 st.markdown(
     """
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -84,6 +92,7 @@ st.markdown(
         font-weight: 400;
     }
     /* ── ReAct step pills ── */
+    /* These coloured labels (Plan / Act / Reflect) show the agent's reasoning steps */
     .step-pill {
         display: inline-block;
         border-radius: 6px;
@@ -367,30 +376,13 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ====================== AGENT CONFIG ======================
-AGENTS = {
-    "Life Admin Executor": {
-        "icon": "🏠",
-        "system_prompt": "You are a helpful Life Admin Executor. Always plan first, use tools when needed, reflect on results, and be concise. Focus on daily life tasks, scheduling, reminders, info lookup.",
-    },
-    "Micro-CFO": {
-        "icon": "💰",
-        "system_prompt": "You are a Micro-CFO for personal finances. Be data-driven and truth-seeking. Analyze expenses, suggest budgets, track spending. Use tools for market data or calculations.",
-    },
-    "Habit Builder": {
-        "icon": "🔥",
-        "system_prompt": "You are a Habit Builder coach. Help users build, track, and reflect on habits. Use memory tools to persist progress. Be encouraging but realistic.",
-    },
-    "Career Resilience Coach": {
-        "icon": "🚀",
-        "system_prompt": "You are a Career Resilience Coach. Help with job search, skill gaps, networking advice. Use web search for real-time opportunities and market trends.",
-    },
-}
 
-# ====================== UI SETUP ======================
+# ====================== PAGE CONFIG ======================
+# Must be called before any other Streamlit commands.
 st.set_page_config(page_title="Agent-in-a-Box Hub", page_icon="🧬", layout="wide")
 
-# HERO (using your original styling)
+# ====================== HERO BANNER ======================
+# The big header users see first. Edit the text here to customise your branding.
 st.markdown(
     """
 <div class="hero">
@@ -404,7 +396,10 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
 # ====================== ONBOARDING TOUR ======================
+# A 3-step guided tour shown to first-time users.
+# Once the user clicks "Let's go", onboarding_done is set to True and the tour disappears.
 if "onboarding_done" not in st.session_state:
     st.session_state.onboarding_done = False
 if "onboarding_step" not in st.session_state:
@@ -428,7 +423,7 @@ _TOUR_CARDS = [
   <span class="tr">💡 Reflect</span>
 </div>
 <p style="font-size:0.82rem;color:rgba(143,168,200,0.7);margin-top:-0.8rem;">
-  Every response you see below follows this pattern.
+  Every response you see below follows this pattern — that's what makes it an agent, not just a chatbot.
 </p>""",
     },
     {
@@ -436,7 +431,7 @@ _TOUR_CARDS = [
         "title": "Send your first message",
         "body": (
             "Pick any agent from the sidebar, paste your API key, then try this starter prompt — "
-            "or write your own. The agent will plan, search, and reply in seconds."
+            "or write your own. The agent will plan, search the web if needed, and reply in seconds."
         ),
         "extra": """
 <div class="tour-prompt-box">
@@ -498,7 +493,10 @@ if not st.session_state.onboarding_done:
                 st.session_state.onboarding_done = True
                 st.rerun()
 
+
 # ====================== SESSION RESULTS BOX ======================
+# Shows the user how many tasks they've completed and how much API credit was used.
+# This resets whenever the user clicks "Clear Memory & Trace".
 _tasks = st.session_state.get("tasks_completed", 0)
 _cost  = st.session_state.get("session_cost", 0.0)
 _mins  = _tasks * 5
@@ -527,7 +525,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Feature cards (using your .card class)
+# ====================== AGENT CARDS ======================
+# One card per agent, displayed in a 4-column grid.
+# Cards are generated automatically from the AGENTS dictionary in agents_config.py.
 st.markdown(
     '<div class="section-label">Choose your agent below — each one is fully agentic</div>',
     unsafe_allow_html=True,
@@ -545,7 +545,10 @@ for i, (name, data) in enumerate(AGENTS.items()):
             unsafe_allow_html=True,
         )
 
-# ====================== GUARDRAILS SESSION STATE ======================
+
+# ====================== SESSION STATE DEFAULTS ======================
+# Sets safe default values for all session variables on first load.
+# Using .setdefault() keeps this clean: values are only set if not already present.
 for _k, _v in {
     "grok_key": "",
     "onboarding_done": False,
@@ -563,11 +566,14 @@ for _k, _v in {
     if _k not in st.session_state:
         st.session_state[_k] = _v
 
-# ====================== COST HELPERS ======================
+
+# ====================== COST TRACKING ======================
+# Grok token pricing. Update these if x.ai changes their rates.
 GROK_COST_INPUT  = 5.0  / 1_000_000   # $ per input token
 GROK_COST_OUTPUT = 15.0 / 1_000_000   # $ per output token
 
 def add_cost(usage):
+    """Add the cost of one API call to the running session total."""
     if usage:
         st.session_state.session_cost += (
             getattr(usage, "prompt_tokens", 0)    * GROK_COST_INPUT +
@@ -575,13 +581,17 @@ def add_cost(usage):
         )
 
 def cost_badge_class(cost, limit):
+    """Return a CSS class that colours the cost badge green / amber / red."""
     if cost >= limit:
         return "cost-badge cost-badge-danger"
     if cost >= limit * 0.75:
         return "cost-badge cost-badge-warn"
     return "cost-badge"
 
-# ====================== GUARDRAIL HELPERS ======================
+
+# ====================== GUARDRAILS ======================
+# Safety rules that run BEFORE the agent ever sees the user's message.
+# If a rule fires, the message is blocked or paused for confirmation.
 SPEND_KEYWORDS  = ["buy", "purchase", "order", "pay", "charge", "subscribe", "checkout", "spend"]
 EMAIL_KEYWORDS  = ["send email", "email to", "draft email", "compose email", "mail to", "send a message to"]
 RISKY_KEYWORDS  = SPEND_KEYWORDS + ["delete", "remove", "post", "submit", "transfer", "share", "send"]
@@ -591,7 +601,10 @@ def input_contains(text, keywords):
     return any(kw in low for kw in keywords)
 
 def check_guardrails(user_text):
-    """Returns (blocked: bool, reason: str | None)"""
+    """
+    Returns (blocked: bool, reason: str | None).
+    A blocked message is shown to the user as an error and never sent to the agent.
+    """
     if st.session_state.guardrail_no_spend and input_contains(user_text, SPEND_KEYWORDS):
         return True, "Never spend money or make purchases guardrail triggered."
     if st.session_state.guardrail_no_personal and any(
@@ -603,13 +616,19 @@ def check_guardrails(user_text):
     return False, None
 
 def needs_email_confirmation(user_text):
+    """Returns True if the message looks like it wants to send an email."""
     return st.session_state.guardrail_ask_email and input_contains(user_text, EMAIL_KEYWORDS)
 
 def needs_risky_confirmation(user_text):
+    """Returns True if the message contains a high-risk action and the user has enabled extra approval."""
     return st.session_state.guardrail_approve_risky and input_contains(user_text, RISKY_KEYWORDS)
 
-# Sidebar: API key + controls
+
+# ====================== SIDEBAR ======================
+# The sidebar is the control panel: API key, guardrails, agent picker, and utilities.
 with st.sidebar:
+
+    # --- API Key ---
     st.header("🔑 Get Started")
     grok_key = st.text_input(
         "Paste your Grok API key (free at x.ai)",
@@ -621,7 +640,7 @@ with st.sidebar:
         st.session_state.grok_key = grok_key
         st.success("✅ Key saved for this session")
 
-    # ── Safety Guardrails ──
+    # --- Safety Guardrails ---
     st.markdown(
         """
 <div class="guardrails-panel">
@@ -668,6 +687,9 @@ with st.sidebar:
     )
 
     st.divider()
+
+    # --- Agent Selector ---
+    # Choosing a new agent resets the conversation and trace automatically (see SESSION STATE below).
     selected_agent_name = st.selectbox(
         "Choose your Agent",
         options=list(AGENTS.keys()),
@@ -675,9 +697,14 @@ with st.sidebar:
     )
     selected_agent = AGENTS[selected_agent_name]
 
+    # --- Agent Literacy Mode ---
+    # When ON: every trace step shows a plain-English explanation of what the agent just did.
+    # This is the core educational feature — users learn ReAct patterns by watching them live.
     literacy_mode = st.toggle("🧠 Agent Literacy Mode (show explanations)", value=True)
 
     st.divider()
+
+    # --- Controls ---
     st.header("Controls")
     if st.button("Clear Memory & Trace"):
         st.session_state.trace = []
@@ -692,6 +719,7 @@ with st.sidebar:
 
     st.divider()
 
+    # --- Premium Upgrade ---
     if "show_premium" not in st.session_state:
         st.session_state.show_premium = False
 
@@ -735,6 +763,8 @@ with st.sidebar:
         )
 
     st.divider()
+
+    # --- Share Button ---
     import streamlit.components.v1 as components
     components.html(
         """
@@ -797,14 +827,22 @@ with st.sidebar:
         scrolling=False,
     )
 
-# API client
+
+# ====================== API CLIENT ======================
+# OpenAI-compatible client pointed at x.ai's Grok endpoint.
+# "dummy" is used as a placeholder so the app loads even before a key is pasted.
 client = OpenAI(
     api_key=st.session_state.grok_key or "dummy", base_url="https://api.x.ai/v1"
 )
 
 
 # ====================== TOOLS ======================
+# These are the real-world actions the agent can take.
+# Each function here maps to a tool definition in the `tools` list below.
+# When the agent decides to call a tool, the matching function runs and returns a result.
+
 def web_search(query: str) -> str:
+    """Search DuckDuckGo and return the top 3 results as plain text."""
     try:
         with DDGS() as ddgs:
             results = [r for r in ddgs.text(query, max_results=3)]
@@ -814,18 +852,22 @@ def web_search(query: str) -> str:
 
 
 def get_current_datetime() -> str:
+    """Return the current date and time as a string."""
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 def save_to_memory(key: str, value: str) -> str:
+    """Persist a key-value pair to Replit's built-in database (survives restarts)."""
     db[key] = value
     return f"Saved '{key}' to long-term memory."
 
 
 def load_from_memory(key: str) -> str:
+    """Retrieve a previously saved value from Replit's database."""
     return db.get(key, "No data found for that key.")
 
 
+# Tool schema — this is what gets sent to the Grok API so it knows which tools are available.
 tools = [
     {
         "type": "function",
@@ -873,6 +915,7 @@ tools = [
     },
 ]
 
+# Maps tool names (strings) to the actual Python functions above.
 tool_map = {
     "web_search": web_search,
     "get_current_datetime": get_current_datetime,
@@ -880,7 +923,11 @@ tool_map = {
     "load_from_memory": load_from_memory,
 }
 
-# ====================== SESSION STATE ======================
+
+# ====================== MEMORY / CONVERSATION STATE ======================
+# messages holds the full conversation history sent to the API each turn.
+# trace holds a human-readable log of what the agent did — shown in the UI.
+# Both reset automatically when the user switches agents.
 if (
     "messages" not in st.session_state
     or st.session_state.get("current_agent") != selected_agent_name
@@ -891,10 +938,13 @@ if (
     st.session_state.current_agent = selected_agent_name
     st.session_state.trace = []
 
-# ====================== CHAT ======================
+
+# ====================== CHAT INPUT ======================
+# This is the text box at the bottom of the page.
+# Input flows through guardrails before anything is sent to the agent.
 user_input = st.chat_input("What do you need help with today?")
 
-# ── Handle new user input: store as pending if confirmation needed ──
+# Step 1: Check guardrails — block or flag the message before the agent sees it.
 if user_input:
     if not st.session_state.grok_key:
         st.error("Please paste your Grok API key in the sidebar first.")
@@ -905,13 +955,15 @@ if user_input:
                 {"step": "Guardrail Applied", "content": block_reason}
             )
         elif needs_email_confirmation(user_input) or needs_risky_confirmation(user_input):
+            # Pause and ask the user to confirm before proceeding.
             st.session_state.pending_input = user_input
             st.session_state.pending_confirmed = False
         else:
+            # Safe to proceed immediately.
             st.session_state.pending_input = user_input
             st.session_state.pending_confirmed = True
 
-# ── Show confirmation prompt for pending high-risk / email actions ──
+# Step 2: If the message is waiting for human confirmation, show the approval UI.
 if st.session_state.pending_input and not st.session_state.pending_confirmed:
     _pending = st.session_state.pending_input
     _is_email = needs_email_confirmation(_pending)
@@ -938,16 +990,25 @@ if st.session_state.pending_input and not st.session_state.pending_confirmed:
             st.session_state.pending_confirmed = False
             st.rerun()
 
-# ── Execute confirmed input ──
+
+# ====================== ReAct AGENT LOOP ======================
+# This is the core of how the agent works — the ReAct pattern:
+#   1. The agent receives the user message and REASONS about what to do (Plan).
+#   2. If it decides to use a tool, it calls one (Act).
+#   3. The tool result is fed back to the agent, which then REFLECTS and replies (Reflect).
+# This loop can repeat multiple times in one turn if the agent needs to chain tool calls.
 if st.session_state.pending_input and st.session_state.pending_confirmed:
     _exec_input = st.session_state.pending_input
     st.session_state.pending_input = None
     st.session_state.pending_confirmed = False
 
+    # Add the user's message to the conversation history.
     st.session_state.messages.append({"role": "user", "content": _exec_input})
     st.session_state.trace.append({"step": "User", "content": _exec_input})
 
-    with st.spinner(f"{selected_agent['icon']} {selected_agent_name} thinking..."):
+    with st.spinner(f"{selected_agent['icon']} {selected_agent_name} is thinking..."):
+
+        # --- Plan step: ask the model what to do ---
         response = client.chat.completions.create(
             model="grok-beta",
             messages=st.session_state.messages,
@@ -959,6 +1020,7 @@ if st.session_state.pending_input and st.session_state.pending_confirmed:
         msg = response.choices[0].message
         st.session_state.messages.append(msg.model_dump())
 
+        # --- Act step: if the model requested a tool, run it ---
         if msg.tool_calls:
             for tool_call in msg.tool_calls:
                 tool_name = tool_call.function.name
@@ -971,6 +1033,7 @@ if st.session_state.pending_input and st.session_state.pending_confirmed:
                     st.session_state.trace.append(
                         {"step": "Tool Result", "content": result}
                     )
+                    # Feed the tool result back into the conversation.
                     st.session_state.messages.append(
                         {
                             "role": "tool",
@@ -984,6 +1047,7 @@ if st.session_state.pending_input and st.session_state.pending_confirmed:
                         {"step": "Tool Error", "content": str(e)}
                     )
 
+            # --- Reflect step: ask the model to summarise what it found ---
             final_response = client.chat.completions.create(
                 model="grok-beta",
                 messages=st.session_state.messages,
@@ -997,21 +1061,47 @@ if st.session_state.pending_input and st.session_state.pending_confirmed:
                 {"step": "Final Reflection", "content": final_msg.content}
             )
         else:
+            # No tool needed — the agent answered directly from its own knowledge.
             st.session_state.trace.append(
                 {"step": "Final Reflection", "content": msg.content}
             )
 
         st.session_state.tasks_completed += 1
 
-# ====================== DISPLAY ======================
+
+# ====================== TRACE DISPLAY ======================
+# Shows every step the agent took this session.
+# In Literacy Mode, each step includes a plain-English explanation of WHY it happened.
 st.subheader(f"{selected_agent['icon']} Agent Trace — {selected_agent_name}")
+
+# Literacy Mode explanations — shown next to each trace step when the toggle is ON.
+_LITERACY_EXPLANATIONS = {
+    "Final Reflection": (
+        "💡 **Reflection step** — after acting, the agent reviews everything it found "
+        "and composes a final answer. This is what separates an agent from a basic chatbot: "
+        "it checks its own work before replying."
+    ),
+    "Tool Call": (
+        "🔧 **Action step** — the agent decided it needed real-world information "
+        "and called a tool to get it. You're watching live tool use, not a simulation."
+    ),
+    "Tool Result": (
+        "📥 **Tool result received** — the agent now has fresh data and will use it "
+        "to inform its final answer."
+    ),
+}
+
 for entry in st.session_state.trace:
     if entry["step"] == "User":
-        st.info(f"👤 **User**: {entry['content']}")
+        st.info(f"👤 **You**: {entry['content']}")
     elif entry["step"] == "Tool Call":
         st.warning(f"🔧 **Tool Called**: {entry['content']}")
+        if literacy_mode:
+            st.caption(_LITERACY_EXPLANATIONS["Tool Call"])
     elif entry["step"] == "Tool Result":
         st.success(f"✅ **Tool Result**: {entry['content']}")
+        if literacy_mode:
+            st.caption(_LITERACY_EXPLANATIONS["Tool Result"])
     elif entry["step"] == "Guardrail Applied":
         st.markdown(
             f'<span class="guardrail-trace">🛡️ Guardrail Applied</span><br>{entry["content"]}',
@@ -1020,14 +1110,16 @@ for entry in st.session_state.trace:
     else:
         content = entry["content"]
         if literacy_mode:
-            explanation = {
-                "Final Reflection": "🤖 **This is the Reflection step** — agents review what happened and decide next actions. This is what makes them truly agentic.",
-                "Tool Call": "🔧 **This is real tool calling** — the agent decided to act in the world.",
-            }.get(entry["step"], "")
-            st.markdown(f"**{entry['step']}**: {content}\n\n{explanation}")
+            explanation = _LITERACY_EXPLANATIONS.get(entry["step"], "")
+            st.markdown(f"**{entry['step']}**: {content}")
+            if explanation:
+                st.caption(explanation)
         else:
             st.markdown(f"**{entry['step']}**: {content}")
 
+
+# ====================== LIVE CONVERSATION ======================
+# The standard chat-style view of the conversation (user + assistant messages only).
 st.subheader("Live Conversation")
 for msg in st.session_state.messages:
     if msg["role"] == "user":

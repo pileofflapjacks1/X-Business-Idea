@@ -6,6 +6,15 @@ Pick an agent, give it a task, and watch it plan, search, and get things done fo
 
 ---
 
+## 🌐 Live Demo
+
+> **Try it instantly — no setup required:**
+> [https://your-demo-url.replit.app](https://your-demo-url.replit.app)
+>
+> *(Deploy this Repl and replace the link above with your live URL)*
+
+---
+
 ## ⚡ 60-Second Quick Start
 
 > **You'll be up and running in under a minute. Promise.**
@@ -57,7 +66,19 @@ The agent will plan its approach, search the web if needed, and reply with a hel
 [ Premium always-on button ]
 ```
 
-*(Replace this section with real screenshots once you've deployed!)*
+*(Add real screenshots to a `/screenshots` folder once you've deployed, then link them here.)*
+
+---
+
+## 🧠 What Is an Agentic AI — and Why Does It Matter?
+
+Most AI tools just answer questions. An **agent** goes further:
+
+1. **Plan** — it thinks through what steps to take before acting
+2. **Act** — it uses real tools (web search, memory, date/time) to get things done
+3. **Reflect** — it reviews what happened and decides if more steps are needed
+
+When you turn on **Agent Literacy Mode** in the sidebar, you'll see these steps labelled in real time as they happen. This is how professional AI systems at companies like Google and OpenAI actually work — you're not just using AI, you're learning how it thinks.
 
 ---
 
@@ -110,3 +131,5 @@ Try clicking "Clear Memory & Trace" in the sidebar and starting over. If the pro
 ---
 
 *Built with [Streamlit](https://streamlit.io) + [Grok by x.ai](https://x.ai/api)*
+
+License: MIT (see LICENSE file)
